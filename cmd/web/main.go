@@ -1,29 +1,32 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
+	"os"
 )
 
 func main() {
-	// Initialize a new servemux
-	mux := http.NewServeMux()
+	addr := flag.String("addr", ":4000", "HTTP network address")
+	flag.Parse()
 
-	// Register the home function as the handler for the "/" URL pattern
-	mux.HandleFunc("/", home)
+	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
-	// Register the showSnippet function as the handler for the "/snippet" URL pattern
-	mux.HandleFunc("/snippet", showSnippet)
+	app := &application{
+		errorLog: errorLog,
+		infoLog:  infoLog,
+	}
 
-	// Register the createSnippet function as the handler for the "/snippet/create" URL pattern
-	mux.HandleFunc("/snippet/create", createSnippet)
-
-	// Register the file server as the handler for all URL paths that start with "/static/"
-	fileServer := http.FileServer(http.Dir("./ui/static/"))
-	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
+	srv := &http.Server{
+		Addr:     *addr,
+		ErrorLog: errorLog,
+		Handler:  app.routes(),
+	}
 
 	// Start the server on port 4000 and log any errors
-	log.Println("Starting server on :4000")
-	err := http.ListenAndServe(":4000", mux)
-	log.Fatal(err)
+	infoLog.Printf("Starting server on %s", *addr)
+	err := srv.ListenAndServe()
+	errorLog.Fatal(err)
 }
